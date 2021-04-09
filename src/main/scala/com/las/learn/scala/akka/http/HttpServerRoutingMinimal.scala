@@ -1,4 +1,4 @@
-package com.las.learn.scala.akka
+package com.las.learn.scala.akka.http
 
 import java.util.Calendar
 
@@ -6,7 +6,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.javadsl.Behaviors
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.{complete, concat, get, path}
 
 import scala.io.StdIn
 

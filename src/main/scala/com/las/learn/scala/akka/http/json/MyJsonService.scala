@@ -1,4 +1,4 @@
-package com.las.learn.scala.akka.json
+package com.las.learn.scala.akka.http.json
 
 import akka.http.scaladsl.server.Directives
 

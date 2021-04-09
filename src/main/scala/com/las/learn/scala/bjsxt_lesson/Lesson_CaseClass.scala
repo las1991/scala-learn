@@ -1,4 +1,4 @@
-package com.las.learn.scala
+package com.las.learn.scala.bjsxt_lesson
 
 import java.util.Objects
 
