@@ -26,3 +26,4 @@ libraryDependencies ++= Seq(
 )
 
 libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion
+libraryDependencies += "com.github.cb372" %% "scalacache-guava" % "0.28.0"
