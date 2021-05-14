@@ -15,7 +15,7 @@ import scala.util.Try
  * @Date: 2021/5/14 18:05
  * @Description:
  */
-object GuavaCacheTryTest {
+object GuavaCacheTry {
 
   val underlyingGuavaCache = CacheBuilder.newBuilder().maximumSize(10000L).build[String, Entry[String]]
   implicit val guavaCache: Cache[String] = GuavaCache(underlyingGuavaCache)
@@ -29,21 +29,6 @@ object GuavaCacheTryTest {
 
   def getUser(id: Int): Try[String] = memoize[Try, String](Some(5.seconds)) {
     queryDb(id)
-  }
-
-  def main(args: Array[String]): Unit = {
-    getUser(1)
-    Thread.sleep(100)
-    getUser(1)
-    Thread.sleep(5000)
-    getUser(1)
-    Thread.sleep(100)
-    getUser(2)
-    Thread.sleep(100)
-    getUser(2)
-    Thread.sleep(5000)
-    getUser(2)
-    Thread.sleep(100)
   }
 
 }
