@@ -1,0 +1,6 @@
+syntax = "proto3";
+option java_package = "io.asdx.grpc.stub.msg";
+message User {
+    int64 id = 1;
+    string name = 2;
+}
