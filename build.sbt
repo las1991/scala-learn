@@ -1,3 +1,5 @@
+import com.lightbend.sbt.SbtAspectj._
+
 name := "scala-learn"
 
 version := "0.1"
@@ -101,13 +103,54 @@ lazy val embedded_redis = Project(id = "embedded-redis", base = file("embedded-r
       Seq("it.ozimov" % "embedded-redis" % "0.7.1") ++
         redisClient
   )
-lazy val scala_aop      = Project(id = "scala-aop", base = file("scala-aop"))
-  .enablePlugins(JavaAppPackaging)
+
+lazy val scala_aop_tracer       = Project(id = "scala-aop-tracer", base = file("scala-aop-tracer"))
+  .enablePlugins(JavaAppPackaging, SbtAspectj)
   .dependsOn()
   .settings(
-    libraryDependencies ++=
-      aspectj
+    // input compiled scala classes
+    aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
+    // ignore warnings
+    aspectjLintProperties in Aspectj += "invalidAbsoluteTypeName = ignore",
+    aspectjLintProperties in Aspectj += "adviceDidNotMatch = ignore",
+    // replace regular products with compiled aspects
+    products in Compile := (products in Aspectj).value,
+    libraryDependencies ++= aspectj
   )
+lazy val scala_aop_instrumented = Project(id = "scala-aop-instrumented", base = file("scala-aop-instrumented"))
+  .enablePlugins(JavaAppPackaging, SbtAspectj)
+  .dependsOn(scala_aop_tracer)
+  .settings(
+    // add the compiled aspects from tracer
+    aspectjBinaries in Aspectj ++= (products in Compile in scala_aop_tracer).value,
+    // weave this project's classes
+    aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
+    products in Compile := (products in Aspectj).value,
+    products in Runtime := (products in Compile).value,
+    libraryDependencies ++= aspectj
+  )
+
+// for sbt scripted test:
+TaskKey[Unit]("check") := {
+  import scala.sys.process.Process
+
+  val cp   = (fullClasspath in Compile in scala_aop_instrumented).value
+  val mc   = (mainClass in Compile in scala_aop_instrumented).value
+  val opts = (javaOptions in run in Compile in scala_aop_instrumented).value
+
+  val LF       = System.lineSeparator()
+  val expected = "Printing sample:" + LF + "hello" + LF
+  val output   = Process("java", opts ++ Seq("-classpath", cp.files.absString, mc getOrElse "")).!!
+  if (output != expected) {
+    println("Unexpected output:")
+    println(output)
+    println("Expected:")
+    println(expected)
+    sys.error("Unexpected output")
+  } else {
+    print(output)
+  }
+}
 
 lazy val scala_cache = Project(id = "scala-cache", base = file("scala-cache"))
   .enablePlugins(JavaAppPackaging)
