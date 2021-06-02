@@ -96,51 +96,13 @@ lazy val akka_http = Project(id = "akka-http", base = file("akka-http"))
         akkaHttp
   )
 
-lazy val embedded_redis            = Project(id = "embedded-redis", base = file("embedded-redis"))
+lazy val embedded_redis = Project(id = "embedded-redis", base = file("embedded-redis"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     libraryDependencies ++=
       Seq("it.ozimov" % "embedded-redis" % "0.7.1") ++
         redisClient
   )
-lazy val aspectj_weave_annotations =
-  Project(id = "aspectj-weave-annotations", base = file("aspectj-weave-annotations"))
-    .enablePlugins(JavaAppPackaging, SbtAspectj)
-    .settings(
-      aspectjShowWeaveInfo in Aspectj := true,
-      aspectjVerbose in Aspectj := true,
-//      aspectjDirectory in Aspectj := crossTarget.value,
-      // add compiled classes as an input to aspectj
-      aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
-      // use the results of aspectj weaving
-      products in Compile := (products in Aspectj).value,
-      products in Runtime := (products in Compile).value,
-      unmanagedClasspath in (Compile, runMain) += (aspectjDirectory in Aspectj).value,
-      libraryDependencies ++= aspectj
-    )
-
-TaskKey[Unit]("check_aspectj_weave_annotations") := {
-  import scala.sys.process.Process
-
-  val cp   = (fullClasspath in Compile in aspectj_weave_annotations).value
-  val mc   = (mainClass in Compile in aspectj_weave_annotations).value
-  val opts = (javaOptions in run in Compile in aspectj_weave_annotations).value
-
-  val LF       = System.lineSeparator()
-  val expected = "Method=execution(Sum.checkSum(..)), Input=2,3, Result=5" + LF
-  val output   = Process("java", opts ++ Seq("-classpath", cp.files.absString, mc getOrElse "")).!!
-  if (output != expected) {
-    println("Unexpected output:")
-    println(output)
-    println("Expected:")
-    println(expected)
-    sys.error("Unexpected output")
-  } else {
-    println(opts)
-    println(Seq("-classpath", cp.files.absString, mc getOrElse ""))
-    print("output: " + output)
-  }
-}
 
 lazy val aspectj_compile_annotations_tracer       =
   Project(id = "aspectj-compile-annotations-tracer", base = file("aspectj-compile-annotations-tracer"))
@@ -191,6 +153,87 @@ TaskKey[Unit]("check_aspectj_compile_annotations_instrumented") := {
     sys.error("Unexpected output")
   } else {
     print(output)
+  }
+}
+
+lazy val aspectj_weave_annotations =
+  Project(id = "aspectj-weave-annotations", base = file("aspectj-weave-annotations"))
+    .enablePlugins(JavaAppPackaging, SbtAspectj)
+    .settings(
+      aspectjShowWeaveInfo in Aspectj := true,
+      aspectjVerbose in Aspectj := true,
+      //      aspectjDirectory in Aspectj := crossTarget.value,
+      // add compiled classes as an input to aspectj
+      aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
+      // use the results of aspectj weaving
+      products in Compile := (products in Aspectj).value,
+      products in Runtime := (products in Compile).value,
+      libraryDependencies ++= aspectj
+    )
+
+TaskKey[Unit]("check_aspectj_weave_annotations") := {
+  import scala.sys.process.Process
+
+  val cp   = (fullClasspath in Compile in aspectj_weave_annotations).value
+  val mc   = (mainClass in Compile in aspectj_weave_annotations).value
+  val opts = (javaOptions in run in Compile in aspectj_weave_annotations).value
+
+  val LF       = System.lineSeparator()
+  val expected = "Method=execution(Sum.checkSum(..)), Input=2,3, Result=5" + LF
+  val output   = Process("java", opts ++ Seq("-classpath", cp.files.absString, mc getOrElse "")).!!
+  if (output != expected) {
+    println("Unexpected output:")
+    println(output)
+    println("Expected:")
+    println(expected)
+    sys.error("Unexpected output")
+  } else {
+    println(opts)
+    println(Seq("-classpath", cp.files.absString, mc getOrElse ""))
+    print("output: " + output)
+  }
+}
+
+lazy val aspectj_weave_load_time =
+  Project(id = "aspectj-weave-load-time", base = file("aspectj-weave-load-time"))
+    .enablePlugins(JavaAppPackaging, SbtAspectj)
+    .settings(
+      aspectjShowWeaveInfo in Aspectj := true,
+      aspectjVerbose in Aspectj := true,
+      // only compile the aspects (no weaving)
+      aspectjCompileOnly in Aspectj := true,
+      // add the compiled aspects as products
+      products in Compile ++= (products in Aspectj).value,
+      // fork the run so that javaagent option can be added
+      fork in run := true,
+      // add the aspectj weaver javaagent option
+      javaOptions in run ++= (aspectjWeaverOptions in Aspectj).value,
+      libraryDependencies ++= aspectj
+    )
+
+TaskKey[Unit]("check_aspectj_weave_load_time") := {
+  import scala.sys.process.Process
+
+  val cp   = (fullClasspath in Compile in aspectj_weave_load_time).value
+  val mc   = (mainClass in Compile in aspectj_weave_load_time).value
+  val opts = (javaOptions in run in Compile in aspectj_weave_load_time).value
+
+  val LF       = System.lineSeparator()
+  val expected = "Method=execution(Sum.checkSum(..)), Input=2,3, Result=5" + LF
+
+  println(opts)
+  println(opts ++ Seq("-classpath", cp.files.absString, mc getOrElse ""))
+
+  val output = Process("java", opts ++ Seq("-classpath", cp.files.absString, mc getOrElse "")).!!
+  if (output != expected) {
+    println("Unexpected output:")
+    println(output)
+    println("Expected:")
+    println(expected)
+    sys.error("Unexpected output")
+  } else {
+
+    print("output: " + output)
   }
 }
 
