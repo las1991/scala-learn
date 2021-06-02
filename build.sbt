@@ -1,7 +1,3 @@
-import com.lightbend.sbt.SbtAspectj._
-
-Global / onChangedBuildSource := ReloadOnSourceChanges
-
 name := "scala-learn"
 
 version := "0.1"
@@ -100,15 +96,15 @@ lazy val akka_http = Project(id = "akka-http", base = file("akka-http"))
         akkaHttp
   )
 
-lazy val embedded_redis = Project(id = "embedded-redis", base = file("embedded-redis"))
+lazy val embedded_redis            = Project(id = "embedded-redis", base = file("embedded-redis"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     libraryDependencies ++=
       Seq("it.ozimov" % "embedded-redis" % "0.7.1") ++
         redisClient
   )
-lazy val scala_aspectj  =
-  Project(id = "scala-aspectj", base = file("scala-aspectj"))
+lazy val aspectj_weave_annotations =
+  Project(id = "aspectj-weave-annotations", base = file("aspectj-weave-annotations"))
     .enablePlugins(JavaAppPackaging, SbtAspectj)
     .settings(
       aspectjShowWeaveInfo in Aspectj := true,
@@ -118,17 +114,17 @@ lazy val scala_aspectj  =
       aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
       // use the results of aspectj weaving
       products in Compile := (products in Aspectj).value,
-      products in Test := (products in Compile).value,
-      products in Runtime := (products in Test).value,
+      products in Runtime := (products in Compile).value,
+      unmanagedClasspath in (Compile, runMain) += (aspectjDirectory in Aspectj).value,
       libraryDependencies ++= aspectj
     )
 
-TaskKey[Unit]("check_scala_aspectj") := {
+TaskKey[Unit]("check_aspectj_weave_annotations") := {
   import scala.sys.process.Process
 
-  val cp   = (fullClasspath in Compile in scala_aspectj).value
-  val mc   = (mainClass in Compile in scala_aspectj).value
-  val opts = (javaOptions in run in Compile in scala_aspectj).value
+  val cp   = (fullClasspath in Compile in aspectj_weave_annotations).value
+  val mc   = (mainClass in Compile in aspectj_weave_annotations).value
+  val opts = (javaOptions in run in Compile in aspectj_weave_annotations).value
 
   val LF       = System.lineSeparator()
   val expected = "Method=execution(Sum.checkSum(..)), Input=2,3, Result=5" + LF
@@ -146,8 +142,8 @@ TaskKey[Unit]("check_scala_aspectj") := {
   }
 }
 
-lazy val scala_aspectj_annotations_tracer       =
-  Project(id = "scala-aspectj-annotations-tracer", base = file("scala-aspectj-annotations-tracer"))
+lazy val aspectj_compile_annotations_tracer       =
+  Project(id = "aspectj-compile-annotations-tracer", base = file("aspectj-compile-annotations-tracer"))
     .enablePlugins(JavaAppPackaging, SbtAspectj)
     .dependsOn()
     .settings(
@@ -161,14 +157,14 @@ lazy val scala_aspectj_annotations_tracer       =
       products in Compile := (products in Aspectj).value,
       libraryDependencies ++= aspectj
     )
-lazy val scala_aspectj_annotations_instrumented =
-  Project(id = "scala-aspectj-annotations-instrumented", base = file("scala-aspectj-annotations-instrumented"))
+lazy val aspectj_compile_annotations_instrumented =
+  Project(id = "aspectj-compile-annotations-instrumented", base = file("aspectj-compile-annotations-instrumented"))
     .enablePlugins(JavaAppPackaging, SbtAspectj)
-    .dependsOn(scala_aspectj_annotations_tracer)
+    .dependsOn(aspectj_compile_annotations_tracer)
     .settings(
       aspectjVerbose in Aspectj := true,
       // add the compiled aspects from tracer
-      aspectjBinaries in Aspectj ++= (products in Compile in scala_aspectj_annotations_tracer).value,
+      aspectjBinaries in Aspectj ++= (products in Compile in aspectj_compile_annotations_tracer).value,
       // weave this project's classes
       aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
       products in Compile := (products in Aspectj).value,
@@ -177,12 +173,12 @@ lazy val scala_aspectj_annotations_instrumented =
     )
 
 // for sbt scripted test:
-TaskKey[Unit]("check_scala_aspectj_annotations_instrumented") := {
+TaskKey[Unit]("check_aspectj_compile_annotations_instrumented") := {
   import scala.sys.process.Process
 
-  val cp   = (fullClasspath in Compile in scala_aspectj_annotations_instrumented).value
-  val mc   = (mainClass in Compile in scala_aspectj_annotations_instrumented).value
-  val opts = (javaOptions in run in Compile in scala_aspectj_annotations_instrumented).value
+  val cp   = (fullClasspath in Compile in aspectj_compile_annotations_instrumented).value
+  val mc   = (mainClass in Compile in aspectj_compile_annotations_instrumented).value
+  val opts = (javaOptions in run in Compile in aspectj_compile_annotations_instrumented).value
 
   val LF       = System.lineSeparator()
   val expected = "Printing sample:" + LF + "hello" + LF
