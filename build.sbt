@@ -1,5 +1,7 @@
 import com.lightbend.sbt.SbtAspectj._
 
+Global / onChangedBuildSource := ReloadOnSourceChanges
+
 name := "scala-learn"
 
 version := "0.1"
@@ -31,8 +33,9 @@ val akka      = Seq(
 )
 
 val akkaHttp = Seq(
-  "com.typesafe.akka" %% "akka-http"          % akkaHttpVersion,
-  "com.typesafe.akka" %% "akka-http2-support" % akkaHttpVersion
+  "com.typesafe.akka" %% "akka-http"            % akkaHttpVersion,
+  "com.typesafe.akka" %% "akka-http2-support"   % akkaHttpVersion,
+  "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion
 )
 
 val configVersion = "1.4.0"
@@ -76,6 +79,7 @@ lazy val scala_base = Project(id = "scala-base", base = file("scala-base"))
   .enablePlugins(JavaAppPackaging)
   .dependsOn()
   .settings(
+    libraryDependencies ++= akka
   )
 
 lazy val akka_base = Project(id = "akka-base", base = file("akka-base"))
@@ -103,40 +107,82 @@ lazy val embedded_redis = Project(id = "embedded-redis", base = file("embedded-r
       Seq("it.ozimov" % "embedded-redis" % "0.7.1") ++
         redisClient
   )
+lazy val scala_aspectj  =
+  Project(id = "scala-aspectj", base = file("scala-aspectj"))
+    .enablePlugins(JavaAppPackaging, SbtAspectj)
+    .settings(
+      aspectjShowWeaveInfo in Aspectj := true,
+      aspectjVerbose in Aspectj := true,
+//      aspectjDirectory in Aspectj := crossTarget.value,
+      // add compiled classes as an input to aspectj
+      aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
+      // use the results of aspectj weaving
+      products in Compile := (products in Aspectj).value,
+      products in Test := (products in Compile).value,
+      products in Runtime := (products in Test).value,
+      libraryDependencies ++= aspectj
+    )
 
-lazy val scala_aop_tracer       = Project(id = "scala-aop-tracer", base = file("scala-aop-tracer"))
-  .enablePlugins(JavaAppPackaging, SbtAspectj)
-  .dependsOn()
-  .settings(
-    // input compiled scala classes
-    aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
-    // ignore warnings
-    aspectjLintProperties in Aspectj += "invalidAbsoluteTypeName = ignore",
-    aspectjLintProperties in Aspectj += "adviceDidNotMatch = ignore",
-    // replace regular products with compiled aspects
-    products in Compile := (products in Aspectj).value,
-    libraryDependencies ++= aspectj
-  )
-lazy val scala_aop_instrumented = Project(id = "scala-aop-instrumented", base = file("scala-aop-instrumented"))
-  .enablePlugins(JavaAppPackaging, SbtAspectj)
-  .dependsOn(scala_aop_tracer)
-  .settings(
-    // add the compiled aspects from tracer
-    aspectjBinaries in Aspectj ++= (products in Compile in scala_aop_tracer).value,
-    // weave this project's classes
-    aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
-    products in Compile := (products in Aspectj).value,
-    products in Runtime := (products in Compile).value,
-    libraryDependencies ++= aspectj
-  )
-
-// for sbt scripted test:
-TaskKey[Unit]("check") := {
+TaskKey[Unit]("check_scala_aspectj") := {
   import scala.sys.process.Process
 
-  val cp   = (fullClasspath in Compile in scala_aop_instrumented).value
-  val mc   = (mainClass in Compile in scala_aop_instrumented).value
-  val opts = (javaOptions in run in Compile in scala_aop_instrumented).value
+  val cp   = (fullClasspath in Compile in scala_aspectj).value
+  val mc   = (mainClass in Compile in scala_aspectj).value
+  val opts = (javaOptions in run in Compile in scala_aspectj).value
+
+  val LF       = System.lineSeparator()
+  val expected = "Method=execution(Sum.checkSum(..)), Input=2,3, Result=5" + LF
+  val output   = Process("java", opts ++ Seq("-classpath", cp.files.absString, mc getOrElse "")).!!
+  if (output != expected) {
+    println("Unexpected output:")
+    println(output)
+    println("Expected:")
+    println(expected)
+    sys.error("Unexpected output")
+  } else {
+    println(opts)
+    println(Seq("-classpath", cp.files.absString, mc getOrElse ""))
+    print("output: " + output)
+  }
+}
+
+lazy val scala_aspectj_annotations_tracer       =
+  Project(id = "scala-aspectj-annotations-tracer", base = file("scala-aspectj-annotations-tracer"))
+    .enablePlugins(JavaAppPackaging, SbtAspectj)
+    .dependsOn()
+    .settings(
+      aspectjVerbose in Aspectj := true,
+      // input compiled scala classes
+      aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
+      // ignore warnings
+      aspectjLintProperties in Aspectj += "invalidAbsoluteTypeName = ignore",
+      aspectjLintProperties in Aspectj += "adviceDidNotMatch = ignore",
+      // replace regular products with compiled aspects
+      products in Compile := (products in Aspectj).value,
+      libraryDependencies ++= aspectj
+    )
+lazy val scala_aspectj_annotations_instrumented =
+  Project(id = "scala-aspectj-annotations-instrumented", base = file("scala-aspectj-annotations-instrumented"))
+    .enablePlugins(JavaAppPackaging, SbtAspectj)
+    .dependsOn(scala_aspectj_annotations_tracer)
+    .settings(
+      aspectjVerbose in Aspectj := true,
+      // add the compiled aspects from tracer
+      aspectjBinaries in Aspectj ++= (products in Compile in scala_aspectj_annotations_tracer).value,
+      // weave this project's classes
+      aspectjInputs in Aspectj += (aspectjCompiledClasses in Aspectj).value,
+      products in Compile := (products in Aspectj).value,
+      products in Runtime := (products in Compile).value,
+      libraryDependencies ++= aspectj
+    )
+
+// for sbt scripted test:
+TaskKey[Unit]("check_scala_aspectj_annotations_instrumented") := {
+  import scala.sys.process.Process
+
+  val cp   = (fullClasspath in Compile in scala_aspectj_annotations_instrumented).value
+  val mc   = (mainClass in Compile in scala_aspectj_annotations_instrumented).value
+  val opts = (javaOptions in run in Compile in scala_aspectj_annotations_instrumented).value
 
   val LF       = System.lineSeparator()
   val expected = "Printing sample:" + LF + "hello" + LF
