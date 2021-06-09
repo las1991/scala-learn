@@ -67,6 +67,10 @@ val aspectj = Seq(
   "org.aspectj" % "aspectjrt"     % "1.7.2"
 )
 
+val akkaQuartzSchedulerStack = Seq(
+  "com.enragedginger" %% "akka-quartz-scheduler" % "1.9.1-akka-2.6.x"
+)
+
 libraryDependencies in ThisBuild ++=
   logback ++
     testStack
@@ -87,13 +91,21 @@ lazy val akka_base = Project(id = "akka-base", base = file("akka-base"))
         akkaHttp
   )
 
-lazy val akka_http = Project(id = "akka-http", base = file("akka-http"))
+lazy val akka_http             = Project(id = "akka-http", base = file("akka-http"))
   .enablePlugins(JavaAppPackaging)
   .dependsOn()
   .settings(
     libraryDependencies ++=
       akka ++
         akkaHttp
+  )
+lazy val akka_quartz_scheduler = Project(id = "akka-quartz-scheduler", base = file("akka-quartz-scheduler"))
+  .enablePlugins(JavaAppPackaging)
+  .dependsOn()
+  .settings(
+    libraryDependencies ++=
+      akka ++
+        akkaQuartzSchedulerStack
   )
 
 lazy val embedded_redis = Project(id = "embedded-redis", base = file("embedded-redis"))
