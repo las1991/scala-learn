@@ -19,16 +19,15 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.{Failure, Success}
 
-
-/**
- * @auther: liansheng
- * @Date: 2021/5/18 19:01
- * @Description:
- */
+/** @auther: liansheng
+  * @Date: 2021/5/18 19:01
+  * @Description:
+  */
 object GreeterServer {
   def main(args: Array[String]): Unit = {
     // important to enable HTTP/2 in ActorSystem's config
-    val conf = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on")
+    val conf   = ConfigFactory
+      .parseString("akka.http.server.preview.enable-http2 = on")
       .withFallback(ConfigFactory.defaultApplication())
     val system = ActorSystem[Nothing](Behaviors.empty, "GreeterServer", conf)
     new GreeterServer(system).run()
@@ -38,7 +37,7 @@ object GreeterServer {
 class GreeterServer(system: ActorSystem[_]) {
 
   def run(): Future[Http.ServerBinding] = {
-    implicit val sys = system
+    implicit val sys                  = system
     implicit val ec: ExecutionContext = system.executionContext
 
     val service: HttpRequest => Future[HttpResponse] =
@@ -52,11 +51,11 @@ class GreeterServer(system: ActorSystem[_]) {
 
     bound.onComplete {
       case Success(binding) =>
-        val address = binding.localAddress
+        val address       = binding.localAddress
         println("gRPC server bound to {}:{}", address.getHostString, address.getPort)
         val configService = Nacos4s.configService(ConfigFactory.load().getConfig("nacos4s.client.config"))
         val namingService = Nacos4s.namingService(ConfigFactory.load().getConfig("nacos4s.client.naming"))
-      case Failure(ex) =>
+      case Failure(ex)      =>
         println("Failed to bind gRPC endpoint, terminating system", ex)
         system.terminate()
     }
@@ -64,13 +63,13 @@ class GreeterServer(system: ActorSystem[_]) {
   }
 
   private def serverHttpContext: HttpsConnectionContext = {
-    val privateKey =
+    val privateKey        =
       DERPrivateKeyLoader.load(PEMDecoder.decode(readPrivateKeyPem()))
-    val fact = CertificateFactory.getInstance("X.509")
-    val cer = fact.generateCertificate(
+    val fact              = CertificateFactory.getInstance("X.509")
+    val cer               = fact.generateCertificate(
       classOf[GreeterServer].getResourceAsStream("/certs/server1.pem")
     )
-    val ks = KeyStore.getInstance("PKCS12")
+    val ks                = KeyStore.getInstance("PKCS12")
     ks.load(null)
     ks.setKeyEntry(
       "private",
@@ -80,7 +79,7 @@ class GreeterServer(system: ActorSystem[_]) {
     )
     val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
     keyManagerFactory.init(ks, null)
-    val context = SSLContext.getInstance("TLS")
+    val context           = SSLContext.getInstance("TLS")
     context.init(keyManagerFactory.getKeyManagers, null, new SecureRandom)
     ConnectionContext.https(context)
   }
